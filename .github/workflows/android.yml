@@ -1,0 +1,121 @@
+name: Android APK
+
+# Builds the ModMorpher app on GitHub's runners, which have a JDK and the
+# Android SDK. The sandbox this project was authored in had neither, so this is
+# the supported way to get an APK without a local Android Studio.
+
+on:
+  push:
+    branches:
+      - arena/364a4b9b-javmod-to-mcaddon
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure SDK platform and build-tools
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" >/dev/null 2>&1 || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+
+      # The one keystore. Without the secrets the build still succeeds, but the
+      # result is UNSIGNED and therefore not installable -- never a second
+      # signing identity.
+      - name: Restore the single keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.MODMORPHER_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.MODMORPHER_STORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$STORE_PASSWORD" ]; then
+            mkdir -p android/keystore
+            printf '%s' "$KEYSTORE_B64" | base64 -d > android/keystore/modmorpher.keystore
+            printf 'storeFile=modmorpher.keystore\nstorePassword=%s\nkeyAlias=modmorpher\nkeyPassword=%s\nstoreType=PKCS12\n' \
+              "$STORE_PASSWORD" "$STORE_PASSWORD" > android/keystore/keystore.properties
+            chmod 600 android/keystore/*
+            echo "SIGNED=yes" >> "$GITHUB_ENV"
+            echo "Keystore restored: this build will be signed."
+          else
+            echo "MODMORPHER_ALLOW_UNSIGNED_CI=true" >> "$GITHUB_ENV"
+            echo "SIGNED=no" >> "$GITHUB_ENV"
+            echo "::warning::No keystore secrets found - building an UNSIGNED APK."
+          fi
+
+      - name: Offline resource checks
+        working-directory: android
+        run: python3 scripts/check_resources.py
+
+      - name: Build release APK
+        working-directory: android
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee /tmp/build.log
+
+      - name: Inspect the APK
+        if: success()
+        run: |
+          set -e
+          shopt -s nullglob
+          for f in android/app/build/outputs/apk/release/*.apk; do
+            echo "== $(basename "$f") ($(stat -c%s "$f") bytes)"
+            "$ANDROID_HOME"/build-tools/34.0.0/apksigner verify --print-certs "$f" \
+              && echo "signature: VERIFIED" || echo "signature: none (unsigned)"
+          done
+          {
+            echo "### ModMorpher APK"
+            echo ""
+            echo "Signed: **$SIGNED**"
+            echo ""
+            echo '```'
+            ls -lh android/app/build/outputs/apk/release/
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: modmorpher-apk-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # Log files are not readable through the API from every client, so a
+      # failure also gets filed as an issue. That is the one reliable way to see
+      # what Gradle said without opening a browser.
+      - name: File build failure as an issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo ""
+            echo '```'
+            tail -c 12000 /tmp/build.log 2>/dev/null || echo "(no build log captured)"
+            echo '```'
+          } > /tmp/body.md
+          gh issue create \
+            --title "CI: Android build failed (#$GITHUB_RUN_NUMBER)" \
+            --body-file /tmp/body.md || echo "could not file issue"

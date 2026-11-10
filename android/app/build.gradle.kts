@@ -29,8 +29,17 @@ val keystoreProperties = Properties().apply {
 val missingSigning = !keystorePropertiesFile.isFile ||
     listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
         .any { keystoreProperties.getProperty(it).isNullOrBlank() }
+val signingReady = !missingSigning
 
-if (missingSigning) {
+/**
+ * Escape hatch for CI machines that legitimately cannot hold the keystore.
+ * It only allows an *unsigned* build to be produced. An unsigned APK cannot be
+ * installed at all, so this can never create a second signing identity -- which
+ * is the thing the rule below exists to prevent.
+ */
+val allowUnsigned = System.getenv("MODMORPHER_ALLOW_UNSIGNED_CI").toBoolean()
+
+if (!signingReady && !allowUnsigned) {
     throw GradleException(
         """
         |Missing the ModMorpher signing keystore.
@@ -62,19 +71,28 @@ android {
     }
 
     signingConfigs {
-        create("modmorpher") {
-            storeFile = File(keystoreDir, keystoreProperties.getProperty("storeFile"))
-            storePassword = keystoreProperties.getProperty("storePassword")
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeType = keystoreProperties.getProperty("storeType") ?: "PKCS12"
+        if (signingReady) {
+            create("modmorpher") {
+                storeFile = File(keystoreDir, keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeType = keystoreProperties.getProperty("storeType") ?: "PKCS12"
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("modmorpher")
+            if (signingReady) {
+                signingConfig = signingConfigs.getByName("modmorpher")
+            } else {
+                logger.lifecycle(
+                    "WARNING: no keystore -- building an UNSIGNED release APK. " +
+                        "It cannot be installed until you sign it with the one keystore."
+                )
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -83,7 +101,9 @@ android {
         debug {
             // Same identity as release, and no applicationIdSuffix: one app,
             // one package, one keystore.
-            signingConfig = signingConfigs.getByName("modmorpher")
+            if (signingReady) {
+                signingConfig = signingConfigs.getByName("modmorpher")
+            }
             versionNameSuffix = "-debug"
         }
     }
