@@ -70,14 +70,13 @@ object OfflineConverter {
         var modelCount = 0
         var icon: ByteArray? = null
         var packMetaDescription: String? = null
-        var modId: String? = null
         var skippedClasses = 0
         var totalBytes = 0L
 
         onProgress("Reading the mod jar…")
+        val modId: String? = ZipFile(jar).use { zip -> readModId(zip, zip.entries().toList()) }
         ZipFile(jar).use { zip ->
             val entries = zip.entries().toList()
-            modId = readModId(zip, entries)
             for (entry in entries) {
                 if (entry.isDirectory) continue
                 val path = entry.name
@@ -282,13 +281,13 @@ object OfflineConverter {
     private fun writeManifest(
         file: File,
         name: String,
-        description: String,
+        packDescription: String,
         namespace: String,
         moduleType: String,
     ) {
         val header = JSONObject()
             .put("name", name)
-            .put("description", description)
+            .put("description", packDescription)
             .put("uuid", stableUuid(namespace, "$moduleType.header"))
             .put("version", JSONArray(listOf(1, 0, 0)))
             .put("min_engine_version", JSONArray(listOf(1, 20, 0)))

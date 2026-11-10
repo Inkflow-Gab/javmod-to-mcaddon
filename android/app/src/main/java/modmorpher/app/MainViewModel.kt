@@ -200,7 +200,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val context = getApplication<Application>()
             _busy.value = true
             try {
-                val source = addonSource(context, jobId)
+                val source = addonSource(jobId)
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(destination)?.use { out ->
                         source.inputStream().use { input -> input.copyTo(out) }
@@ -220,7 +220,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val context = getApplication<Application>()
             _busy.value = true
             try {
-                val source = addonSource(context, jobId)
+                val source = addonSource(jobId)
                 val name = _jobs.value.firstOrNull { it.id == jobId }?.fileName ?: "mod"
                 val target = withContext(Dispatchers.IO) {
                     val dir = File(context.cacheDir, "shared").apply { mkdirs() }
@@ -242,7 +242,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Local add-ons are used directly; server ones are downloaded first. */
-    private suspend fun addonSource(context: Context, jobId: String): File {
+    private suspend fun addonSource(jobId: String): File {
+        val context = getApplication<Application>()
         val job = _jobs.value.firstOrNull { it.id == jobId }
         val localPath = job?.localAddonPath
         if (!localPath.isNullOrBlank()) {

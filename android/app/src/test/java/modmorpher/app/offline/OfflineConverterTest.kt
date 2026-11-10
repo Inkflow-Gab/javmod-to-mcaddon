@@ -1,5 +1,6 @@
 package modmorpher.app.offline
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -144,7 +145,7 @@ class OfflineConverterTest {
     fun `language files are renamed to bedrock casing`() {
         val out = temp.newFolder("lang")
         val result = OfflineConverter.convert(sampleJar(), out)
-        val languages = JSONObject(
+        val languages = JSONArray(
             String(entry(result.mcaddon, "rp/texts/languages.json")!!)
         )
         val list = (0 until languages.length()).map { languages.getString(it) }
