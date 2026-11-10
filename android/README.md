@@ -51,6 +51,29 @@ Create `android/local.properties` if Gradle cannot find your SDK:
 sdk.dir=/path/to/Android/Sdk
 ```
 
+### Build in CI (no local SDK needed)
+
+`.github/workflows/android.yml` builds the APK on GitHub's runners, which come
+with a JDK 17 and the Android SDK. Every push to the working branch runs it;
+the APK lands under the run's **Artifacts** (kept 30 days).
+
+Without the signing secrets the workflow still builds, but the result is
+**unsigned and therefore not installable** — that is deliberate, so CI can never
+become a second signing identity. To get an installable APK, add the one
+keystore as repository secrets:
+
+```bash
+base64 -w0 android/keystore/modmorpher.keystore | gh secret set MODMORPHER_KEYSTORE_B64
+gh secret set MODMORPHER_STORE_PASSWORD    # storePassword from keystore.properties
+```
+
+then re-run the workflow. It will report `Signed: yes` and `apksigner` will
+print the certificate fingerprint.
+
+The escape hatch that permits the unsigned build is
+`MODMORPHER_ALLOW_UNSIGNED_CI=true`, set only by the workflow. Nothing about it
+weakens the guarantee for normal builds: they still fail without the keystore.
+
 ### Checks that run without an SDK
 
 ```bash

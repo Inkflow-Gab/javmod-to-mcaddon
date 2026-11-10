@@ -66,6 +66,11 @@ Do **not** re-run the generator with `--force` once you have shipped a build.
 
 ## Building on another machine or CI
 
+The CI workflow uses these exact secret names:
+`MODMORPHER_KEYSTORE_B64` and `MODMORPHER_STORE_PASSWORD`. See
+`.github/workflows/android.yml`. Until they exist, CI produces an *unsigned*
+APK rather than inventing a second key.
+
 Copy `modmorpher.keystore` and `keystore.properties` into `android/keystore/`
 before building. In CI, store the keystore as a base64 secret and reconstruct
 it at build time:
