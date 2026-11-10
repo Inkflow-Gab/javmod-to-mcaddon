@@ -65,7 +65,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (!Prefs(this).isConfigured) promptForServer()
+        val prefs = Prefs(this)
+        // On-device mode needs nothing; only nag when server mode is incomplete.
+        if (prefs.usesServer && !prefs.isConfigured) promptForServer()
+        viewModel.reloadMode()
         viewModel.refresh()
     }
 

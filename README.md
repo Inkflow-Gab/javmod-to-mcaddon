@@ -60,12 +60,14 @@ This is made for **mods made with Forge / NeoForge**.
 
 ## Android app
 
-This repo also contains an Android client, `ModMorpher` (`modmorpher.app`), plus
-the small server it talks to. The phone picks a `.jar`, uploads it, and gets the
-`.mcaddon` back.
+This repo also contains an Android app, `ModMorpher` (`modmorpher.app`), plus the
+small server it can talk to.
 
-The conversion itself cannot run on the phone — it needs a JVM for Vineflower —
-so the app is a client for a machine that runs the real `modmorpher.py`:
+The app works **with no server at all** by default: it reads the mod jar on the
+phone and builds a Bedrock pack from its textures, sounds, models and language
+files. What a phone cannot do is translate Java *code* — that needs the jar
+decompiled by Vineflower, which needs a JVM. Point the app at a server for that
+part:
 
 ```bash
 # on a computer (needs Java 17+ and: pip install -r Requirements.txt)

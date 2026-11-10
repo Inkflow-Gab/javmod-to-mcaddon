@@ -12,12 +12,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  # Set to "true" to also publish the built APK as a git blob so it can be
+  # fetched through the API and signed locally. Turned off normally.
+  PUBLISH_APK: "true"
 
 jobs:
   apk:
@@ -66,12 +71,12 @@ jobs:
         working-directory: android
         run: python3 scripts/check_resources.py
 
-      - name: Build release APK
+      - name: Unit tests and release APK
         working-directory: android
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee /tmp/build.log
+          ./gradlew --no-daemon --stacktrace test assembleRelease 2>&1 | tee /tmp/build.log
 
       - name: Inspect the APK
         if: success()
@@ -100,6 +105,36 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # Artifact downloads redirect to blob storage, which is not reachable from
+      # every client. A git blob is readable through api.github.com, so the APK
+      # can be pulled out and signed somewhere that holds the keystore.
+      - name: Publish APK as a git blob
+        if: success() && env.PUBLISH_APK == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          python3 - "$APK" <<'PY' > /tmp/blob.json
+          import base64, json, sys
+          print(json.dumps({
+              "content": base64.b64encode(open(sys.argv[1], "rb").read()).decode(),
+              "encoding": "base64",
+          }))
+          PY
+          SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/blobs" --input /tmp/blob.json --jq .sha)
+          echo "APK blob sha: $SHA"
+          gh issue create \
+            --title "CI APK blob $SHA" \
+            --body "Unsigned APK from run $GITHUB_RUN_NUMBER ($GITHUB_RUN_ID) for local signing.
+
+blob=$SHA
+
+Fetch with:
+\`\`\`
+gh api repos/$GITHUB_REPOSITORY/git/blobs/$SHA --jq .content | tr -d '\\n' | base64 -d > app.apk
+\`\`\`" || true
 
       # Log files are not readable through the API from every client, so a
       # failure also gets filed as an issue. That is the one reliable way to see

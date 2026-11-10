@@ -21,6 +21,7 @@ import modmorpher.app.data.JobStore
 import modmorpher.app.data.Prefs
 import modmorpher.app.net.ModMorpherClient
 import modmorpher.app.net.ServerException
+import modmorpher.app.offline.OfflineConverter
 import java.io.File
 import java.io.IOException
 import java.net.ConnectException
@@ -43,9 +44,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    /** Set when an addon is ready to hand to another app (e.g. Minecraft). */
+    /** Set when an add-on is ready to hand to another app (e.g. Minecraft). */
     private val _shareUri = MutableStateFlow<Uri?>(null)
     val shareUri: StateFlow<Uri?> = _shareUri.asStateFlow()
+
+    private val _usesServer = MutableStateFlow(prefs.usesServer)
+    val usesServer: StateFlow<Boolean> = _usesServer.asStateFlow()
 
     private var pollJob: Job? = null
 
@@ -62,22 +66,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _shareUri.value = null
     }
 
-    // -- uploading --------------------------------------------------------
+    /** Settings may have changed while we were away. */
+    fun reloadMode() {
+        _usesServer.value = prefs.usesServer
+    }
+
+    // -- converting -------------------------------------------------------
     fun addJar(uri: Uri) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val client = clientOrNull() ?: return@launch
             _busy.value = true
-            var placeholder: JobRecord? = null
             try {
                 val fileName = displayName(context, uri)
                 if (!fileName.endsWith(".jar", ignoreCase = true)) {
                     _message.value = "Pick a mod .jar file, not ${fileName.substringAfterLast('.', "that")}."
                     return@launch
                 }
-
-                // Copy out of the SAF URI first: the stream may vanish part-way
-                // through a long upload otherwise.
                 val temp = withContext(Dispatchers.IO) {
                     val file = File(context.cacheDir, "upload-${UUID.randomUUID()}.jar")
                     context.contentResolver.openInputStream(uri)?.use { input ->
@@ -85,33 +89,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     } ?: throw IllegalStateException("Could not read the selected file.")
                     file
                 }
-
-                val local = JobRecord(
-                    id = JobRecord.LOCAL_PREFIX + UUID.randomUUID(),
-                    fileName = fileName,
-                    status = "uploading",
-                    message = "Uploading…",
-                )
-                placeholder = local
-                upsert(local)
-
-                val job = client.submit(temp, fileName) { sent, total ->
-                    val percent = if (total > 0) (sent * 100 / total).toInt() else 0
-                    val current = _jobs.value.firstOrNull { it.id == local.id }
-                    if (current != null && current.message != "Uploading $percent%") {
-                        upsert(current.copy(message = "Uploading $percent%"), persist = false)
-                    }
+                try {
+                    if (prefs.usesServer) uploadToServer(context, temp, fileName)
+                    else convertOnDevice(context, temp, fileName)
+                } finally {
+                    withContext(Dispatchers.IO) { temp.delete() }
                 }
-
-                withContext(Dispatchers.IO) { temp.delete() }
-                _jobs.value = _jobs.value.filterNot { it.id == local.id }
-                upsert(job)
-                _message.value = "Queued ${job.fileName}"
             } catch (e: Exception) {
-                placeholder?.let { local ->
-                    _jobs.value = _jobs.value.filterNot { it.id == local.id }
-                    store.save(_jobs.value)
-                }
                 _message.value = friendly(e)
             } finally {
                 _busy.value = false
@@ -119,25 +103,110 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** No server: build the pack here. Covers assets only, honestly reported. */
+    private suspend fun convertOnDevice(context: Context, jar: File, fileName: String) {
+        val id = JobRecord.LOCAL_PREFIX + UUID.randomUUID()
+        val local = JobRecord(
+            id = id,
+            fileName = fileName,
+            status = "running",
+            message = "Converting on this device…",
+        )
+        upsert(local)
+
+        try {
+            val outDir = File(context.filesDir, "addons").apply { mkdirs() }
+            var lastStep = ""
+            val outcome = withContext(Dispatchers.IO) {
+                OfflineConverter.convert(jar, outDir) { step ->
+                    if (step != lastStep) {
+                        lastStep = step
+                        // Safe from an IO thread: StateFlow is thread-safe.
+                        upsert(
+                            (_jobs.value.firstOrNull { it.id == id } ?: local)
+                                .copy(message = step),
+                            persist = false,
+                        )
+                    }
+                }
+            }
+
+            val addonFile = File(outDir, "$id.mcaddon")
+            if (outcome.mcaddon.absolutePath != addonFile.absolutePath) {
+                outcome.mcaddon.copyTo(addonFile, overwrite = true)
+                outcome.mcaddon.delete()
+            }
+            val notesFile = File(outDir, "$id.txt").apply { writeText(outcome.report) }
+
+            upsert(
+                local.copy(
+                    status = "succeeded",
+                    message = buildString {
+                        append("Built on this device — ${outcome.textures} textures, ")
+                        append("${outcome.sounds} sounds, ${outcome.languages} languages.")
+                        append(" Java logic needs a server.")
+                    },
+                    hasAddon = true,
+                    hasNotes = true,
+                    sizeBytes = addonFile.length(),
+                    localAddonPath = addonFile.absolutePath,
+                    localNotesPath = notesFile.absolutePath,
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
+            _message.value = "Converted on this device."
+        } catch (e: Exception) {
+            upsert(
+                local.copy(
+                    status = "failed",
+                    message = e.message ?: "On-device conversion failed.",
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
+            _message.value = friendly(e)
+        }
+    }
+
+    private suspend fun uploadToServer(context: Context, jar: File, fileName: String) {
+        val client = clientOrNull() ?: return
+        val local = JobRecord(
+            id = JobRecord.LOCAL_PREFIX + UUID.randomUUID(),
+            fileName = fileName,
+            status = "uploading",
+            message = "Uploading…",
+        )
+        upsert(local)
+        try {
+            val job = client.submit(jar, fileName) { sent, total ->
+                val percent = if (total > 0) (sent * 100 / total).toInt() else 0
+                val current = _jobs.value.firstOrNull { it.id == local.id }
+                if (current != null && current.message != "Uploading $percent%") {
+                    upsert(current.copy(message = "Uploading $percent%"), persist = false)
+                }
+            }
+            _jobs.value = _jobs.value.filterNot { it.id == local.id }
+            upsert(job)
+            _message.value = "Queued ${job.fileName} on the server."
+        } catch (e: Exception) {
+            _jobs.value = _jobs.value.filterNot { it.id == local.id }
+            store.save(_jobs.value)
+            _message.value = friendly(e)
+        }
+    }
+
     // -- results ----------------------------------------------------------
     fun saveAddon(jobId: String, destination: Uri) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val client = clientOrNull() ?: return@launch
             _busy.value = true
             try {
-                val file = withContext(Dispatchers.IO) {
-                    val temp = File(context.cacheDir, "addon-$jobId.mcaddon")
-                    client.download(jobId, temp)
-                    temp
-                }
+                val source = addonSource(context, jobId)
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(destination)?.use { out ->
-                        file.inputStream().use { input -> input.copyTo(out) }
+                        source.inputStream().use { input -> input.copyTo(out) }
                     } ?: throw IllegalStateException("Could not write to the chosen folder.")
-                    file.delete()
                 }
-                _message.value = "Addon saved."
+                _message.value = "Add-on saved."
             } catch (e: Exception) {
                 _message.value = friendly(e)
             } finally {
@@ -149,20 +218,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun shareAddon(jobId: String) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val client = clientOrNull() ?: return@launch
             _busy.value = true
             try {
+                val source = addonSource(context, jobId)
                 val name = _jobs.value.firstOrNull { it.id == jobId }?.fileName ?: "mod"
-                val file = withContext(Dispatchers.IO) {
+                val target = withContext(Dispatchers.IO) {
                     val dir = File(context.cacheDir, "shared").apply { mkdirs() }
-                    val target = File(dir, "ModMorpher_${baseName(name)}.mcaddon")
-                    client.download(jobId, target)
-                    target
+                    val file = File(dir, "ModMorpher_${baseName(name)}.mcaddon")
+                    source.copyTo(file, overwrite = true)
+                    file
                 }
                 _shareUri.value = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.fileprovider",
-                    file,
+                    target,
                 )
             } catch (e: Exception) {
                 _message.value = friendly(e)
@@ -172,8 +241,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Local add-ons are used directly; server ones are downloaded first. */
+    private suspend fun addonSource(context: Context, jobId: String): File {
+        val job = _jobs.value.firstOrNull { it.id == jobId }
+        val localPath = job?.localAddonPath
+        if (!localPath.isNullOrBlank()) {
+            val file = File(localPath)
+            if (file.isFile) return file
+            throw IllegalStateException("The local add-on is gone. Convert it again.")
+        }
+        val client = clientOrNull() ?: throw IllegalStateException("No server configured.")
+        return withContext(Dispatchers.IO) {
+            val cache = File(context.cacheDir, "addon-$jobId.mcaddon")
+            client.download(jobId, cache)
+            cache
+        }
+    }
+
     fun loadNotes(jobId: String, onLoaded: (String) -> Unit) {
         viewModelScope.launch {
+            val job = _jobs.value.firstOrNull { it.id == jobId }
+            val localNotes = job?.localNotesPath
+            if (!localNotes.isNullOrBlank()) {
+                val text = withContext(Dispatchers.IO) {
+                    runCatching { File(localNotes).readText() }.getOrDefault("")
+                }
+                withContext(Dispatchers.Main) { onLoaded(text) }
+                return@launch
+            }
             val client = clientOrNull() ?: return@launch
             try {
                 val text = client.notes(jobId)
@@ -186,12 +281,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteJob(jobId: String) {
         viewModelScope.launch {
-            val client = clientOrNull()
-            if (client != null && !jobId.startsWith(JobRecord.LOCAL_PREFIX)) {
-                try {
-                    client.deleteJob(jobId)
-                } catch (e: Exception) {
-                    // A stale job on the server must not block local cleanup.
+            val job = _jobs.value.firstOrNull { it.id == jobId }
+            job?.localAddonPath?.let { runCatching { File(it).delete() } }
+            job?.localNotesPath?.let { runCatching { File(it).delete() } }
+
+            if (!jobId.startsWith(JobRecord.LOCAL_PREFIX) && prefs.usesServer) {
+                clientOrNull()?.let { client ->
+                    try {
+                        client.deleteJob(jobId)
+                    } catch (e: Exception) {
+                        // A stale job on the server must not block local cleanup.
+                    }
                 }
             }
             _jobs.value = _jobs.value.filterNot { it.id == jobId }
@@ -201,6 +301,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // -- syncing ----------------------------------------------------------
     fun refresh() {
+        if (!prefs.usesServer) return
         viewModelScope.launch {
             val client = clientOrNull() ?: return@launch
             try {
@@ -215,10 +316,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (pollJob?.isActive == true) return
         pollJob = viewModelScope.launch {
             while (isActive) {
-                val active = _jobs.value.any { it.isActive }
+                val active = _jobs.value.any { it.isActive && !it.isLocalOnly }
                 delay(if (active) 3000L else 15000L)
-                if (!prefs.isConfigured) continue
-                if (!active && _jobs.value.isEmpty()) continue
+                if (!prefs.usesServer || prefs.baseUrl.isBlank()) continue
+                if (!active) continue
                 try {
                     merge(ModMorpherClient(prefs.baseUrl, prefs.token).list())
                 } catch (e: Exception) {
@@ -229,7 +330,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun merge(remote: List<JobRecord>) {
-        val locals = _jobs.value.filter { it.isLocalOnly }
+        // Keep local (on-device) jobs; the server knows nothing about them.
+        val locals = _jobs.value.filter { it.localAddonPath != null || it.isLocalOnly }
         val merged = (remote + locals).sortedByDescending { it.createdAt }
         _jobs.value = merged
         store.save(merged)
@@ -237,8 +339,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // -- helpers ----------------------------------------------------------
     private fun clientOrNull(): ModMorpherClient? {
-        if (!prefs.isConfigured) {
-            _message.value = "Set your server address in Settings first."
+        if (prefs.baseUrl.isBlank()) {
+            _message.value = "Set your server address in Settings, or switch to on-device mode."
             return null
         }
         return ModMorpherClient(prefs.baseUrl, prefs.token)

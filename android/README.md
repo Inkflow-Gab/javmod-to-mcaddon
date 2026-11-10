@@ -1,7 +1,6 @@
 # ModMorpher for Android
 
-The phone app for ModMorpher. Pick a Java mod `.jar`, the server converts it,
-and the add-on comes back as a `.mcaddon` you can save or hand to Minecraft.
+Convert a Minecraft Java mod into a Bedrock add-on on your phone.
 
 | | |
 |---|---|
@@ -17,12 +16,35 @@ and the add-on comes back as a `.mcaddon` you can save or hand to Minecraft.
 > `modmorpher` is rejected by the build tools. `modmorpher.app` keeps the name
 > you asked for as the leading segment and stays a valid, store-ready ID.
 
-## The phone cannot convert by itself
+## Two modes — it works with no server at all
 
-Converting a Java mod needs a JVM: `modmorpher.py` decompiles the jar with
-Vineflower (`tools/ClassDecompiler.jar`). Android has no JVM, so this app is a
-**client**. It uploads the jar to `server/modmorpher_server.py` running on a
-computer, polls the job, and downloads the result.
+Set the mode in **Settings**. It defaults to on-device, so a fresh install is
+useful immediately.
+
+### On this device (default, no setup)
+
+Reads the jar and assembles a Bedrock pack right on the phone:
+
+- every texture, grouped into `textures/blocks` and `textures/items`, plus
+  generated `terrain_texture.json` / `item_texture.json` atlases
+- every sound, plus a generated `sound_definitions.json`
+- models and language files (Java `en_us` → Bedrock `en_US`)
+- `manifest.json` for a resource pack **and** a behaviour pack, with UUIDs that
+  are derived from the mod id — so re-converting updates the pack instead of
+  adding a duplicate to the player's list
+
+It also writes a report of exactly what it could not do, shown under **Notes**.
+
+**What it genuinely cannot do on a phone:** translate the mod's Java code.
+That needs the jar decompiled with Vineflower, which needs a JVM, which Android
+does not have. So entity behaviour, custom blocks/items, scripts and Java model
+geometry stay unfinished — and are listed as such rather than silently dropped.
+
+### A server (full conversion)
+
+Runs the real `modmorpher.py` on a computer you control, which also translates
+Java logic into Bedrock scripts. Needs Java 17+ on that machine, and it must be
+reachable from the phone.
 
 ```
  phone (this app)                       computer
@@ -43,6 +65,7 @@ cd android
 python3 scripts/make_keystore.py    # once, if you have no keystore yet
 ./gradlew assembleDebug             # app/build/outputs/apk/debug/
 ./gradlew assembleRelease           # signed with the same keystore
+./gradlew test                      # on-device converter tests, no emulator
 ```
 
 Create `android/local.properties` if Gradle cannot find your SDK:
@@ -80,48 +103,49 @@ weakens the guarantee for normal builds: they still fail without the keystore.
 python3 scripts/check_resources.py   # XML + R.* + ViewBinding + manifest refs
 ```
 
-That script exists because this project is often edited without an Android SDK
-available; it catches the reference-level mistakes that would otherwise only
-surface as aapt errors.
+### Signing an APK without the Android SDK
+
+If you have a keystore and an APK but no build-tools (`apksigner` lives there),
+`scripts/sign_apk_v2.py` applies APK Signature Scheme v2 in pure Python:
+
+```bash
+python3 scripts/sign_apk_v2.py --apk app-release-unsigned.apk \
+    --keystore ../keystore/modmorpher.keystore \
+    --keystore-properties ../keystore/keystore.properties \
+    --out app-release-signed.apk
+```
+
+It re-reads and verifies its own output before reporting success.
 
 ## Using it
 
-1. Start the server on a computer on the same network:
-   ```bash
-   python3 server/modmorpher_server.py
-   ```
-   It prints an address and a token.
-2. In the app, open **Settings** (toolbar), enter e.g. `192.168.1.10:8765` and
-   paste the token, then **Test connection**. It should report the server's
-   Java version.
-3. **Add .jar** → pick a Forge/NeoForge mod → wait for *SUCCEEDED*.
-4. **Save** writes the `.mcaddon` wherever you choose; **Share** hands it
-   straight to Minecraft or another app; **Notes** shows the conversion's
-   `PORTING_NOTES.txt` — the list of things you still have to fix by hand.
+1. **Add .jar** → pick a Forge/NeoForge/Fabric mod.
+2. On-device mode finishes in seconds. Server mode uploads and polls.
+3. **Save** writes the `.mcaddon` wherever you choose; **Share** hands it
+   straight to Minecraft; **Notes** shows what still needs doing.
 
 ## What it deliberately does not do
 
-- **Convert on the device.** Not possible without a JVM (see above).
-- **Run in the background.** Polling happens while the app is open; reopen it
-  and the job list re-syncs from the server, including jobs finished while you
-  were away.
-- **Use TLS.** The default server is plain `http://` on your LAN, so
-  `usesCleartextTraffic` is enabled. Do not point this at the public internet;
-  put TLS and a real reverse proxy in front if you ever do.
-- **Support texture-pack `.zip` yet.** The server accepts mod jars only, and the
-  app requires a `.jar` extension.
+- **Translate Java logic on-device.** Needs a JVM (see above).
+- **Run in the background.** Server polling happens while the app is open; the
+  job list re-syncs on resume.
+- **Use TLS by default.** The server is plain `http://` on your LAN, so
+  `usesCleartextTraffic` is enabled. Do not expose it to the public internet.
+- **Accept texture-pack `.zip` inputs.** Mod jars only.
 
 ## Layout
 
 ```
 android/
 ├── app/src/main/java/modmorpher/app/
-│   ├── MainActivity.kt          list, file picking, save/share
-│   ├── MainViewModel.kt         upload, polling, persistence
-│   ├── SettingsActivity.kt      server address + token, test connection
-│   ├── data/                    JobRecord, JobStore (JSON), Prefs
-│   ├── net/ModMorpherClient.kt  OkHttp client, upload progress
-│   └── ui/JobAdapter.kt         job cards
-├── keystore/                    THE keystore (git-ignored)
-└── scripts/                     make_keystore.py, check_resources.py
+│   ├── MainActivity.kt             list, file picking, save/share
+│   ├── MainViewModel.kt            on-device + server conversion, polling
+│   ├── SettingsActivity.kt         mode, server address + token
+│   ├── data/                       JobRecord, JobStore (JSON), Prefs
+│   ├── net/ModMorpherClient.kt     OkHttp client, upload progress
+│   ├── offline/OfflineConverter.kt on-device pack builder (pure JVM)
+│   └── ui/JobAdapter.kt            job cards
+├── app/src/test/                   JUnit tests for the offline converter
+├── keystore/                       THE keystore (git-ignored)
+└── scripts/                        make_keystore, sign_apk_v2, check_resources
 ```

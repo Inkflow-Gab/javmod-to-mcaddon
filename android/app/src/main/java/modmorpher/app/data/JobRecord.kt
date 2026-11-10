@@ -20,10 +20,16 @@ data class JobRecord(
     val sizeBytes: Long = 0L,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
+    /** Set when the add-on was produced on this device, not on a server. */
+    val localAddonPath: String? = null,
+    val localNotesPath: String? = null,
 ) {
     val isActive: Boolean get() = status == "queued" || status == "running"
     val isFinished: Boolean get() = status == "succeeded" || status == "failed"
     val isLocalOnly: Boolean get() = id.startsWith(LOCAL_PREFIX)
+
+    /** An add-on that lives on the device and needs no server to fetch. */
+    val hasLocalAddon: Boolean get() = !localAddonPath.isNullOrBlank()
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -35,6 +41,8 @@ data class JobRecord(
         put("sizeBytes", sizeBytes)
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
+        if (localAddonPath != null) put("localAddonPath", localAddonPath)
+        if (localNotesPath != null) put("localNotesPath", localNotesPath)
     }
 
     companion object {
@@ -50,6 +58,8 @@ data class JobRecord(
             sizeBytes = o.optLong("sizeBytes", 0L),
             createdAt = o.optLong("createdAt", System.currentTimeMillis()),
             updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
+            localAddonPath = o.optString("localAddonPath").ifBlank { null },
+            localNotesPath = o.optString("localNotesPath").ifBlank { null },
         )
 
         /** Maps the server's snake_case JSON onto this record. */

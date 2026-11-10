@@ -1,6 +1,7 @@
 package modmorpher.app
 
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -24,18 +25,47 @@ class SettingsActivity : AppCompatActivity() {
         binding.serverInput.setText(prefs.baseUrl)
         binding.tokenInput.setText(prefs.token)
 
+        if (prefs.usesServer) binding.modeServer.isChecked = true else binding.modeDevice.isChecked = true
+        binding.modeGroup.setOnCheckedChangeListener { _, _ -> applyModeUi() }
+        applyModeUi()
+
         binding.saveButton.setOnClickListener { save() }
         binding.testButton.setOnClickListener { testConnection() }
     }
 
+    /** Server fields are irrelevant — and disabled — in on-device mode. */
+    private fun applyModeUi() {
+        val serverMode = binding.modeServer.isChecked
+        val enabled = if (serverMode) View.VISIBLE else View.GONE
+        binding.serverLayout.visibility = enabled
+        binding.tokenLayout.visibility = enabled
+        binding.testButton.visibility = enabled
+        binding.modeHelp.setText(
+            if (serverMode) R.string.settings_mode_server_help
+            else R.string.settings_mode_device_help
+        )
+    }
+
     private fun save() {
-        val raw = binding.serverInput.text?.toString().orEmpty()
-        if (raw.isBlank()) {
-            binding.statusText.setText(R.string.settings_need_url)
-            return
+        val serverMode = binding.modeServer.isChecked
+        if (serverMode) {
+            val raw = binding.serverInput.text?.toString().orEmpty()
+            if (raw.isBlank()) {
+                binding.statusText.setText(R.string.settings_need_url)
+                return
+            }
+            prefs.baseUrl = raw
+            prefs.token = binding.tokenInput.text?.toString().orEmpty()
+            prefs.mode = Prefs.MODE_SERVER
+        } else {
+            // Keep any server details around for when they switch back.
+            val raw = binding.serverInput.text?.toString().orEmpty()
+            if (raw.isNotBlank()) {
+                prefs.baseUrl = raw
+                prefs.token = binding.tokenInput.text?.toString().orEmpty()
+            }
+            prefs.mode = Prefs.MODE_DEVICE
         }
-        prefs.baseUrl = raw
-        prefs.token = binding.tokenInput.text?.toString().orEmpty()
         binding.serverInput.setText(prefs.baseUrl)
         Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
         finish()

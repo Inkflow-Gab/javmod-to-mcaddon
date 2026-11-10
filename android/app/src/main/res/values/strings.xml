@@ -4,7 +4,7 @@
 
     <string name="add_jar">Add .jar</string>
     <string name="empty_title">No conversions yet</string>
-    <string name="empty_body">Tap “Add .jar” to upload a Java mod.\nThe server converts it and sends a Bedrock add-on back.</string>
+    <string name="empty_body">Tap “Add .jar” to convert a Java mod.\n\nOn this device: textures, sounds, models and languages are packed into a Bedrock pack — no server needed.\n\nWith a server: Java logic is translated too.</string>
 
     <string name="save">Save</string>
     <string name="share">Share</string>
@@ -19,10 +19,15 @@
     <string name="delete_job_body">Remove “%1$s”? The add-on is deleted from the server too.</string>
 
     <string name="setup_title">Connect a server</string>
-    <string name="setup_body">ModMorpher needs a computer running the conversion server, because decompiling a mod requires Java.\n\nStart it with:\n  python3 server/modmorpher_server.py\n\nThen enter its address and token in Settings.</string>
+    <string name="setup_body">You chose server mode, which needs a computer running the conversion server — decompiling a mod requires Java.\n\nStart it with:\n  python3 server/modmorpher_server.py\n\nThen enter its address and token in Settings.\n\nOr switch to on-device mode in Settings to convert without any server.</string>
     <string name="open_settings">Open settings</string>
 
-    <string name="settings_title">Server settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_mode">Convert using</string>
+    <string name="settings_mode_device">This device (no server)</string>
+    <string name="settings_mode_server">A server (full conversion)</string>
+    <string name="settings_mode_device_help">Works on any phone with no setup. Extracts textures, sounds, models and languages into a Bedrock pack. Java code cannot be translated without a computer, so entity behaviour, blocks and items are listed as unfinished in the notes.</string>
+    <string name="settings_mode_server_help">Runs the real modmorpher.py on a computer you control, which also translates Java logic. Needs Java 17+ on that machine and the same network as this phone.</string>
     <string name="settings_server_hint">Server address</string>
     <string name="settings_server_example">192.168.1.10:8765</string>
     <string name="settings_token_hint">Access token</string>
