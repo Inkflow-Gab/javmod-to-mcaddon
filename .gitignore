@@ -30,3 +30,6 @@ android/keystore/
 
 # --- Server runtime state (jobs, uploaded jars, tokens) ---
 server/data/
+
+# Locally built APKs (signed artifacts produced here, not source)
+dist/

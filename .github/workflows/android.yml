@@ -21,9 +21,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Set to "true" to also publish the built APK as a git blob so it can be
-  # fetched through the API and signed locally. Turned off normally.
-  PUBLISH_APK: "true"
+  # Set to "true" to also publish the built APK as a git blob (plus a check run
+  # carrying its SHA), so it can be fetched through the API and signed where the
+  # keystore lives. Off by default; normal builds just upload an artifact.
+  PUBLISH_APK: "false"
 
 jobs:
   apk:

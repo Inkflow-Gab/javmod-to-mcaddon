@@ -175,7 +175,9 @@ def build_v2_block(key, cert, digest: bytes) -> bytes:
     )
     signer = lp(signed_data) + lp(lp(u32(SIG_ALG_RSA_PKCS1_SHA256) + lp(signature))) + lp(public_key)
 
-    pair = u64(4 + len(signer)) + u32(V2_BLOCK_ID) + signer
+    # value == length-prefixed sequence of length-prefixed signers
+    value = lp(lp(signer))
+    pair = u64(4 + len(value)) + u32(V2_BLOCK_ID) + value
     size = len(pair) + 8 + 16
     return u64(size) + pair + u64(size) + SIG_BLOCK_MAGIC
 
@@ -219,25 +221,29 @@ def verify_apk(apk_path: str, expected_cert_der: bytes | None = None) -> str:
 
     signers_seq, _ = read_lp(v2_value, 0)
     signer, _ = read_lp(signers_seq, 0)
-    signed_data, rest = read_lp(signer, 0)
-    signatures_seq, rest = read_lp(rest, 0)
-    public_key, _ = read_lp(rest, 0)
+    # The three fields of a signer are length-prefixed and sequential, so the
+    # offsets are tracked within `signer` itself.
+    signed_data, offset = read_lp(signer, 0)
+    signatures_seq, offset = read_lp(signer, offset)
+    public_key, _ = read_lp(signer, offset)
 
-    alg, after_alg = read_u32(signatures_seq, 0)
-    signature, _ = read_lp(signatures_seq, after_alg)
+    signature_entry, _ = read_lp(signatures_seq, 0)
+    alg, after_alg = read_u32(signature_entry, 0)
+    signature, _ = read_lp(signature_entry, after_alg)
     if alg != SIG_ALG_RSA_PKCS1_SHA256:
         raise ApkError(f"unexpected signature algorithm 0x{alg:04x}")
 
     # The digest inside the signed data must match the file on disk.
-    digests_seq, _ = read_lp(signed_data, 0)
-    digest_alg, after = read_u32(digests_seq, 0)
-    stored_digest, _ = read_lp(digests_seq, after)
+    digests_seq, after_digests = read_lp(signed_data, 0)
+    digest_entry, _ = read_lp(digests_seq, 0)
+    digest_alg, after = read_u32(digest_entry, 0)
+    stored_digest, _ = read_lp(digest_entry, after)
     if digest_alg != SIG_ALG_RSA_PKCS1_SHA256:
         raise ApkError(f"unexpected digest algorithm 0x{digest_alg:04x}")
     if stored_digest != content_digest(layout, layout.block_start):
         raise ApkError("content digest mismatch: the file changed after signing")
 
-    certs_seq, _ = read_lp(signed_data, len(lp(digests_seq)))
+    certs_seq, _ = read_lp(signed_data, after_digests)
     cert_der, _ = read_lp(certs_seq, 0)
     if expected_cert_der is not None and cert_der != expected_cert_der:
         raise ApkError("signing certificate does not match the keystore")
