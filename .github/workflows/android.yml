@@ -125,18 +125,28 @@ jobs:
           }))
           PY
           SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/blobs" --input /tmp/blob.json --jq .sha)
-          echo "APK blob sha: $SHA"
-          {
-            echo "Unsigned APK built by CI, for signing where the keystore lives."
-            echo
-            echo "blob=$SHA"
-            echo "run=$GITHUB_RUN_ID"
-            echo
-            echo "Fetch with:"
-            echo
-            echo '    gh api "repos/'"$GITHUB_REPOSITORY"'/git/blobs/'"$SHA"'" --jq .content | tr -d "\n" | base64 -d > app.apk'
-          } > /tmp/issue.md
-          gh issue create --title "CI APK blob $SHA" --body-file /tmp/issue.md || true
+          SIZE=$(stat -c%s "$APK")
+          echo "APK blob sha: $SHA ($SIZE bytes)"
+          # Publish the SHA where it can be read back through the API. Issues
+          # are not writable with this token, check runs are.
+          python3 - "$SHA" "$SIZE" "$(basename "$APK")" <<'PY' > /tmp/check.json
+          import json, os, sys
+          sha, size, name = sys.argv[1], sys.argv[2], sys.argv[3]
+          print(json.dumps({
+              "name": "apk blob",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "status": "completed",
+              "conclusion": "success",
+              "output": {
+                  "title": "APK blob {}".format(sha),
+                  "summary": "blob={}\nfile={}\nbytes={}\nsigned={}\nrun={}".format(
+                      sha, name, size,
+                      os.environ.get("SIGNED", "no"),
+                      os.environ.get("GITHUB_RUN_ID", "")),
+              },
+          }))
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/check-runs" --input /tmp/check.json --jq .id
 
       # Job logs are not readable through the API from every client, so on
       # failure the important lines are attached to a check run instead. Its
