@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ModMorpher working output (generated at runtime, not source)
+Bedrock_Pack/
+Bedrock_Pack.mcaddon
+src_*/
+
+# NOTE: the .jar files under tools/ and examples/ are intentional source
+# assets (Vineflower decompiler + sample mods) and must stay tracked.

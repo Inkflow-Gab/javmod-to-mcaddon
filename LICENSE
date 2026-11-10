@@ -1,0 +1,72 @@
+ModMorpher Source Available License v1.1
+Copyright (c) 2026 Indozilla1234. Most Rights Reserved.
+
+"Software" refers to the ModMorpher program, its source code, build scripts, documentation, and associated assets. This is a Source Available license; it is not an Open Source license as defined by the OSI.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. PERMITTED USES
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You ARE permitted to:
+
+a) View, read, and study the source code for personal or educational purposes.
+
+b) Use the Software to convert, port, or migrate mods/assets that you personally authored or have explicit written permission to modify.
+
+c) Fork and Modify: Create public or private forks of the Software on hosting platforms (e.g., GitHub, GitLab).
+
+d) Distribute Modifications: Redistribute modified versions of the source code only if the purpose is to submit improvements to the original Software via Pull Request or to provide a community patch that requires the original Software to function.
+
+e) Contribute to the Software via pull requests, subject to acceptance by Indozilla1234.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2. PROHIBITED USES
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You ARE NOT permitted to:
+
+a) Hard Forking & Fragmentation: You may not redistribute the Software or its derivatives as a separate, competing product. Any public fork must remain downstream of the original repository and may not be rebranded or marketed as a replacement for ModMorpher.
+
+b) Unauthorized Conversion: Use the Software to convert any mod or asset for which you do not hold explicit permission.
+
+c) Circumvention: Bypass any DRM or access control associated with Minecraft: Bedrock Edition or the Minecraft Marketplace.
+
+d) Commercialization: Redistribute, resell, or commercially exploit the Software (or its forks) without explicit written permission from Indozilla1234.
+
+e) Trademark & Attribution: Remove or alter the "ModMorpher" name, copyright notices, or this license. You may not use the name "ModMorpher" for any modified version in a way that suggests it is the official version.
+
+f) Standalone Redistribution: You may not host a "compiled" (.exe, .jar, etc.) version of a fork for public download if it is intended to bypass the official distribution channels.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3. OWNERSHIP & CONTRIBUTIONS
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The Software remains the exclusive property of Indozilla1234. By submitting a Pull Request or contribution, you grant Indozilla1234 a non-exclusive, irrevocable, royalty-free license to use, modify, and redistribute your contribution as part of the Software.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4. TERMINATION
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Any violation of Section 2 will result in the immediate and automatic termination of your rights under this license. If the violation is not remedied within ten (10) days of notice, your right to use or host any forks of the Software is permanently revoked.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5. DISCLAIMER & LIMITATION OF LIABILITY
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL INDOZILLA1234 BE LIABLE FOR ANY CLAIM, DAMAGES, OR LEGAL ISSUES ARISING FROM THE UNAUTHORIZED USE OF CONVERTED CONTENT BY USERS.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Governing Law: This license is governed by the laws of the State of Indiana, United States of America.
+
+Copyright (c) 2026 Indozilla1234. Most Rights Reserved.
