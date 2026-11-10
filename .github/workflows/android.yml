@@ -125,16 +125,17 @@ jobs:
           PY
           SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/blobs" --input /tmp/blob.json --jq .sha)
           echo "APK blob sha: $SHA"
-          gh issue create \
-            --title "CI APK blob $SHA" \
-            --body "Unsigned APK from run $GITHUB_RUN_NUMBER ($GITHUB_RUN_ID) for local signing.
-
-blob=$SHA
-
-Fetch with:
-\`\`\`
-gh api repos/$GITHUB_REPOSITORY/git/blobs/$SHA --jq .content | tr -d '\\n' | base64 -d > app.apk
-\`\`\`" || true
+          {
+            echo "Unsigned APK built by CI, for signing where the keystore lives."
+            echo
+            echo "blob=$SHA"
+            echo "run=$GITHUB_RUN_ID"
+            echo
+            echo "Fetch with:"
+            echo
+            echo '    gh api "repos/'"$GITHUB_REPOSITORY"'/git/blobs/'"$SHA"'" --jq .content | tr -d "\n" | base64 -d > app.apk'
+          } > /tmp/issue.md
+          gh issue create --title "CI APK blob $SHA" --body-file /tmp/issue.md || true
 
       # Log files are not readable through the API from every client, so a
       # failure also gets filed as an issue. That is the one reliable way to see
