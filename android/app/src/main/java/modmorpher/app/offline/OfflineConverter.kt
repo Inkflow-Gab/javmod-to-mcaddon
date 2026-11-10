@@ -119,9 +119,9 @@ object OfflineConverter {
                             val name = relative.substringAfterLast('/').substringBeforeLast('.')
                             when {
                                 relative.startsWith("items/", true) || relative.startsWith("item/", true) ->
-                                    itemTextures.add(name to "textures/$relative")
+                                    itemTextures.add(name to atlasPath(relative))
                                 relative.startsWith("blocks/", true) || relative.startsWith("block/", true) ->
-                                    blockTextures.add(name to "textures/$relative")
+                                    blockTextures.add(name to atlasPath(relative))
                             }
                         }
                     }
@@ -255,6 +255,10 @@ object OfflineConverter {
             raw
         }
     }
+
+    /** Bedrock atlases reference textures without the .png extension. */
+    private fun atlasPath(relative: String): String =
+        "textures/" + relative.substringBeforeLast('.', relative)
 
     private fun sanitize(raw: String): String =
         raw.lowercase()

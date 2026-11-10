@@ -70,7 +70,7 @@ class OfflineConverterTest {
         val result = OfflineConverter.convert(jar, out)
 
         assertTrue("mcaddon should exist", result.mcaddon.isFile)
-        assertEquals(1, result.textures)
+        assertEquals(2, result.textures)
         assertEquals(1, result.sounds)
         assertEquals(1, result.models)
         assertEquals(2, result.languages)
@@ -168,7 +168,7 @@ class OfflineConverterTest {
 
         assertFalse("must not write outside the work dir", File(out.parentFile, "evil.png").exists())
         assertTrue(result.report.contains("unsafe path"))
-        // The good entry still converts.
+        // The good entry still converts; the escaping one does not.
         assertEquals(1, result.textures)
     }
 

@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.tasks.testing.Test
 
 plugins {
     id("com.android.application")
@@ -142,4 +143,14 @@ dependencies {
     // org.json is part of Android; unit tests need the real implementation.
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+}
+
+// Print assertion messages on failure, so CI logs (and the check-run summary
+// used to read them) say what actually went wrong.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+        showStackTraces = false
+    }
 }
