@@ -58,6 +58,27 @@ This is made for **mods made with Forge / NeoForge**.
 
 
 
+## Android app
+
+This repo also contains an Android client, `ModMorpher` (`modmorpher.app`), plus
+the small server it talks to. The phone picks a `.jar`, uploads it, and gets the
+`.mcaddon` back.
+
+The conversion itself cannot run on the phone — it needs a JVM for Vineflower —
+so the app is a client for a machine that runs the real `modmorpher.py`:
+
+```bash
+# on a computer (needs Java 17+ and: pip install -r Requirements.txt)
+python3 server/modmorpher_server.py        # prints an address + token
+
+# build the app (needs JDK 17 + Android SDK)
+cd android && python3 scripts/make_keystore.py && ./gradlew assembleRelease
+```
+
+- [`android/README.md`](android/README.md) — the app, and what it does not do
+- [`android/KEYSTORE.md`](android/KEYSTORE.md) — the single signing keystore
+- [`server/README.md`](server/README.md) — API, security, systemd unit
+
 ## Why The License Stuff is Here
 This project is meant to help mod creators & players, not to pirate people’s work.
 If you’re converting someone else’s ARR or non-permissive mod, make sure you have permission.

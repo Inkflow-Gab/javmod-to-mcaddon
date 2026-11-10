@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ModMorpher</string>
+
+    <string name="add_jar">Add .jar</string>
+    <string name="empty_title">No conversions yet</string>
+    <string name="empty_body">Tap “Add .jar” to upload a Java mod.\nThe server converts it and sends a Bedrock add-on back.</string>
+
+    <string name="save">Save</string>
+    <string name="share">Share</string>
+    <string name="notes">Notes</string>
+    <string name="delete">Delete</string>
+
+    <string name="share_addon">Share add-on</string>
+    <string name="porting_notes">Porting notes</string>
+    <string name="notes_empty">This run produced no porting notes.</string>
+
+    <string name="delete_job">Delete job</string>
+    <string name="delete_job_body">Remove “%1$s”? The add-on is deleted from the server too.</string>
+
+    <string name="setup_title">Connect a server</string>
+    <string name="setup_body">ModMorpher needs a computer running the conversion server, because decompiling a mod requires Java.\n\nStart it with:\n  python3 server/modmorpher_server.py\n\nThen enter its address and token in Settings.</string>
+    <string name="open_settings">Open settings</string>
+
+    <string name="settings_title">Server settings</string>
+    <string name="settings_server_hint">Server address</string>
+    <string name="settings_server_example">192.168.1.10:8765</string>
+    <string name="settings_token_hint">Access token</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_test">Test connection</string>
+    <string name="settings_saved">Saved.</string>
+    <string name="settings_need_url">Enter the server address first.</string>
+    <string name="settings_testing">Testing…</string>
+    <string name="settings_ok">Connected. Java: %1$s</string>
+    <string name="settings_java_missing">not found on the server</string>
+    <string name="settings_failed">Could not reach the server.</string>
+    <string name="settings_help">The token is printed by the server when it starts, and is also saved on the server at data/token.txt.\n\nThe phone and the computer must be on the same network. Plain http:// is allowed here, so only use this on a network you trust.</string>
+
+    <string name="menu_settings">Settings</string>
+    <string name="menu_refresh">Refresh</string>
+</resources>

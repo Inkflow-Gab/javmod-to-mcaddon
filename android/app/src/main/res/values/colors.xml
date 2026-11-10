@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_primary">#2F6B3A</color>
+    <color name="brand_primary_container">#B7F0C0</color>
+    <color name="brand_on_primary_container">#0B2A12</color>
+    <color name="brand_secondary">#5F7A2E</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="status_success">#2E7D32</color>
+    <color name="status_error">#C62828</color>
+    <color name="status_running">#1565C0</color>
+    <color name="status_idle">#6B6B6B</color>
+
+    <color name="ic_launcher_background">#16241A</color>
+</resources>

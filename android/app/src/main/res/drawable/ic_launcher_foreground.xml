@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- A block: Java mod in, Bedrock add-on out. -->
+    <path
+        android:fillColor="#8FE07A"
+        android:pathData="M54,28 L80,41 L54,54 L28,41 Z" />
+    <path
+        android:fillColor="#4FAE55"
+        android:pathData="M28,41 L54,54 L54,82 L28,69 Z" />
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M80,41 L80,69 L54,82 L54,54 Z" />
+</vector>

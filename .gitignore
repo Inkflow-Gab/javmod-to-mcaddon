@@ -11,3 +11,22 @@ src_*/
 
 # NOTE: the .jar files under tools/ and examples/ are intentional source
 # assets (Vineflower decompiler + sample mods) and must stay tracked.
+
+# --- Android app ---
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.iml
+
+# The ONE signing identity. Never commit: this repo is public, and a leaked
+# keystore lets anyone sign updates as the app's author.
+android/keystore/
+*.keystore
+*.jks
+*.p12
+
+# --- Server runtime state (jobs, uploaded jars, tokens) ---
+server/data/
