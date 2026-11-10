@@ -60,8 +60,9 @@ object OfflineConverter {
         val bp = File(staging, "bp").apply { mkdirs() }
 
         val notes = mutableListOf<String>()
-        val itemTextures = mutableListOf<String>()   // names -> paths under RP
-        val blockTextures = mutableListOf<String>()
+        // (texture name, path under the pack) pairs for the generated atlases.
+        val itemTextures = mutableListOf<Pair<String, String>>()
+        val blockTextures = mutableListOf<Pair<String, String>>()
         val soundPaths = mutableListOf<String>()
         val languages = mutableListOf<String>()
         var textureCount = 0
