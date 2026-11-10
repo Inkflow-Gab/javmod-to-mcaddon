@@ -14,6 +14,7 @@ on:
 permissions:
   contents: write
   issues: write
+  checks: write
 
 concurrency:
   group: android-${{ github.ref }}
@@ -137,21 +138,38 @@ jobs:
           } > /tmp/issue.md
           gh issue create --title "CI APK blob $SHA" --body-file /tmp/issue.md || true
 
-      # Log files are not readable through the API from every client, so a
-      # failure also gets filed as an issue. That is the one reliable way to see
-      # what Gradle said without opening a browser.
-      - name: File build failure as an issue
+      # Job logs are not readable through the API from every client, so on
+      # failure the important lines are attached to a check run instead. Its
+      # summary is plain text and readable via api.github.com.
+      - name: Report failure
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          {
-            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo ""
-            echo '```'
-            tail -c 12000 /tmp/build.log 2>/dev/null || echo "(no build log captured)"
-            echo '```'
-          } > /tmp/body.md
-          gh issue create \
-            --title "CI: Android build failed (#$GITHUB_RUN_NUMBER)" \
-            --body-file /tmp/body.md || echo "could not file issue"
+          python3 - <<'PY' > /tmp/check.json
+          import json, os, re
+
+          text = ""
+          if os.path.exists("/tmp/build.log"):
+              text = open("/tmp/build.log", errors="replace").read()
+
+          interesting = [
+              line for line in text.splitlines()
+              if re.match(r"^\s*(e|w): ", line)
+              or "FAILED" in line
+              or "expected" in line.lower()
+              or "error:" in line.lower()
+          ]
+          summary = "\n".join(interesting[:150]) + "\n\n---- log tail ----\n" + text[-20000:]
+          print(json.dumps({
+              "name": "gradle failure log",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "status": "completed",
+              "conclusion": "failure",
+              "output": {
+                  "title": "Gradle output ({} bytes)".format(len(text)),
+                  "summary": summary[-60000:],
+              },
+          }))
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/check-runs" --input /tmp/check.json --jq .id || true
